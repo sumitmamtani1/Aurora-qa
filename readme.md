@@ -36,8 +36,6 @@ The service infers answers from real messages fetched via the public API:
 **Request:**
 GET https://aurora-qa.onrender.com/ask?q=When%20is%20Layla%20planning%20her%20trip%20to%20London
 
-css
-Copy code
 
 **Response:**
 ```json
@@ -47,26 +45,19 @@ Copy code
 2️⃣ Vikram’s Cars Query
 Request:
 
-perl
-Copy code
 GET https://aurora-qa.onrender.com/ask?q=How%20many%20cars%20does%20Vikram%20Desai%20have
 Response:
 
-json
-Copy code
 {
   "answer": "Vikram Desai mentions cars: 'The car service was impeccable—thank you for your recommendation.'"
 }
 3️⃣ Amira’s Favorite Restaurants
 Request:
 
-perl
-Copy code
 GET https://aurora-qa.onrender.com/ask?q=What%20are%20Amira%27s%20favorite%20restaurants
 Response:
 
-json
-Copy code
+
 {
   "answer": "Amira Khan: The French Laundry, Le Bernardin"
 }
@@ -78,9 +69,7 @@ pip installed
 
 Internet connection (to access the public API)
 
-💻 Local Setup
-bash
-Copy code
+
 # 1. Clone the repository
 git clone https://github.com/sumitmamtani1/Aurora-qa.git
 cd Aurora-qa
@@ -95,12 +84,9 @@ Once running, visit:
 
 Response:
 
-json
-Copy code
 {"answer": "Layla Kawaguchi mentioned travel: 'Please remember I prefer aisle seats during my flights.'"}
 🐳 Run via Docker
-bash
-Copy code
+
 # Build image
 docker build -t aurora-qa .
 
@@ -108,8 +94,7 @@ docker build -t aurora-qa .
 docker run -p 8080:8080 -e MESSAGES_API_URL="https://november7-730026606190.europe-west1.run.app/messages" aurora-qa
 Then open in your browser:
 
-perl
-Copy code
+
 http://127.0.0.1:8080/ask?q=What%20are%20Amira%27s%20favorite%20restaurants
 ☁️ Deploy to Render (Free Cloud Hosting)
 Push this repo to GitHub.
@@ -122,15 +107,12 @@ Render auto-detects your Dockerfile.
 
 Add environment variable:
 
-bash
-Copy code
 MESSAGES_API_URL=https://november7-730026606190.europe-west1.run.app/messages
 Click Deploy — wait for build & deploy to complete.
 
 Test your endpoint:
 
-perl
-Copy code
+
 https://aurora-qa.onrender.com/ask?q=When%20is%20Layla%20planning%20her%20trip%20to%20London
 🧠 How It Works
 The /ask endpoint receives a user question.
@@ -150,8 +132,6 @@ GET	/health	Health check endpoint
 
 Example Response:
 
-json
-Copy code
 { "answer": "Layla Kawaguchi mentioned travel: 'Please remember I prefer aisle seats during my flights.'" }
 💡 Alternative Approaches Considered
 1️⃣ Rule-Based Parsing (Chosen Approach)
@@ -215,24 +195,4 @@ Add interactive frontend visualization
 
 👨‍💻 Author
 Sumit Mamtani
-📧 Contact
-🎓 Arizona State University — APM 523 Advanced Optimization & Data Science Projects
-
 ⭐ If you found this project useful, please star the repository! ⭐
-
-yaml
-Copy code
-
----
-
-### ✅ Next Steps
-
-1. Copy the entire block above into your file:  
-   `Aurora-qa/README.md`
-
-2. Commit and push:
-   ```bash
-   git add README.md
-   git commit -m "Add final polished README with formatted JSON examples and alternative approaches"
-   git push origin main
-Refresh your GitHub repo — it’ll render beautifully with colored JSON, emojis, and proper tables 💫
