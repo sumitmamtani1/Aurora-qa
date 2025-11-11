@@ -38,10 +38,10 @@ GET https://aurora-qa.onrender.com/ask?q=When%20is%20Layla%20planning%20her%20tr
 
 
 **Response:**
-```json
+```json```
 {
   "answer": "Layla Kawaguchi mentioned travel: 'Please remember I prefer aisle seats during my flights.'"
-}```
+}
 2️⃣ Vikram’s Cars Query
 Request:
 
