@@ -1,23 +1,16 @@
-# qa_engine.py
 import re
 from collections import defaultdict
 from difflib import get_close_matches
 
-# Keywords
 TRIP_KEYWORDS = ["trip", "travel", "travelling", "traveling", "flight", "going to", "visit", "planning", "leave", "depart"]
 CAR_KEYWORDS = ["car", "cars", "vehicle", "vehicles", "truck", "sedan", "SUV", "van"]
 RESTAURANT_KEYWORDS = ["restaurant", "restaurants", "dinner", "lunch", "eat", "dine", "reservation", "reserve", "chef"]
 
-# small number-word map
 WORD2NUM = {"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10}
 
-# -------------------------
-# Helpers
-# -------------------------
 def normalize_text(s):
     if not isinstance(s, str):
         return ""
-    # normalize spaces and curly quotes
     s = s.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
     s = re.sub(r"\s+", " ", s).strip()
     return s
@@ -30,20 +23,17 @@ def flatten_message(m):
     """
     if not isinstance(m, dict):
         return (None, "")
-    # Author field candidates (based on your dataset)
     author = None
     for f in ("user_name", "user", "author", "name", "member_name", "member"):
         v = m.get(f)
         if isinstance(v, str) and v.strip():
             author = v.strip()
             break
-    # Text field candidates
     text_candidates = []
     for f in ("message", "text", "body", "content", "payload"):
         v = m.get(f)
         if isinstance(v, str) and v.strip():
             text_candidates.append(v.strip())
-    # If none found, collect any string values
     if not text_candidates:
         for k, v in m.items():
             if isinstance(v, str):
@@ -70,18 +60,15 @@ def find_best_name_match(query, names):
     - fuzzy match on normalized form
     """
     q = normalize_text(query).lower()
-    # 1) direct substring
     for n in names:
         if n.lower() in q or n.lower().split()[0] in q:
             return n
-    # 2) token match (first name)
     qtokens = re.findall(r"[A-Za-z']+", q)
     if qtokens:
         for t in qtokens:
             for n in names:
                 if t.lower() == n.lower().split()[0]:
                     return n
-    # 3) fuzzy normalized
     nmap = {normalize_name(n): n for n in names if n}
     qnorm = normalize_name("".join(qtokens))
     if qnorm:
@@ -90,13 +77,9 @@ def find_best_name_match(query, names):
             return nmap[matches[0]]
     return None
 
-# -------------------------
-# Extraction helpers
-# -------------------------
 def extract_dates(text):
-    # quick heuristics for readable date snippets
     patterns = [
-        r'\b\d{4}-\d{2}-\d{2}\b',                          # 2025-11-10
+        r'\b\d{4}-\d{2}-\d{2}\b',                          
         r'\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,\s*\d{4})?\b',
         r'\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b',
         r'\btomorrow\b|\bnext week\b|\bnext month\b|\bthis week\b|\bin \d+ days\b'
@@ -119,9 +102,7 @@ def find_sentences_with_keywords(text, keywords):
 
 def extract_numbers_near_keyword(text, keywords):
     results = []
-    # look for patterns like "has 2 cars", "I own two cars", "I have two vehicles"
     for kw in keywords:
-        # number before keyword
         pat1 = rf'(\d+|{"|".join(WORD2NUM.keys())})\s+(?:\w+\s){{0,3}}{kw}'
         for m in re.findall(pat1, text, flags=re.IGNORECASE):
             tok = m.lower()
@@ -129,16 +110,12 @@ def extract_numbers_near_keyword(text, keywords):
                 results.append(int(tok))
             elif tok in WORD2NUM:
                 results.append(WORD2NUM[tok])
-        # number after keyword e.g. "cars: 2"
         pat2 = rf'{kw}\s*[:\-]?\s*(\d+)'
         for m in re.findall(pat2, text, flags=re.IGNORECASE):
             results.append(int(m))
     return results
 
 def extract_restaurant_names(sentence):
-    # heuristics:
-    # - quoted names "The French Laundry"
-    # - after 'at' with a capitalized token: "at The French Laundry"
     names = set()
     qnames = re.findall(r'["“](.+?)["”]', sentence)
     for q in qnames:
@@ -146,14 +123,9 @@ def extract_restaurant_names(sentence):
     atnames = re.findall(r'\bat\s+([A-Z][\w\s&\-\']{2,80})', sentence)
     for an in atnames:
         names.add(an.strip())
-    # patterns like "reservation at The French Laundry for four"
     return list(names)
 
-# -------------------------
-# Main QA
-# -------------------------
 def answer_question_from_messages(question, messages):
-    # Build member -> aggregated text mapping
     member_texts = defaultdict(str)
     for m in messages:
         author, text = flatten_message(m)
@@ -167,7 +139,6 @@ def answer_question_from_messages(question, messages):
 
     lowq = normalize_text(question).lower()
 
-    # TRIP intent
     if any(w in lowq for w in ["trip", "travel", "flight", "going to", "depart", "leave", "visit"]):
         if picked:
             txt = member_texts.get(picked, "")
@@ -196,48 +167,32 @@ def answer_question_from_messages(question, messages):
                         lines.append(f"{n}: {s[0]}")
                 return " | ".join(lines)
             return "No trip planning info found in the dataset."
-
-    # CAR intent
-        # -----------------------------
-    # CAR intent (improved)
-    # -----------------------------
     if any(w in lowq for w in ["car", "cars", "vehicle", "vehicles", "owns", "own", "have a car", "have cars"]):
         def find_ownership_counts(text):
             counts = extract_numbers_near_keyword(text, CAR_KEYWORDS)
             if counts:
                 return counts[0]
-            # look for patterns like "I have a car", "I own a car", "I have one car"
-            # if we find "I have" or "I own" + a car keyword without number -> infer at least 1
             ownership_pattern = re.search(r'\b(I|We|I\'ve|I have|I own|I had|I\'m)\b.*\b(' + '|'.join(CAR_KEYWORDS) + r')\b', text, flags=re.IGNORECASE)
             if ownership_pattern:
-                # try to find a word-number too
                 num_word = re.search(r'\b(one|two|three|four|five|six|seven|eight|nine|ten)\b', text, flags=re.IGNORECASE)
                 if num_word:
                     return WORD2NUM.get(num_word.group(1).lower())
-                # phrase indicates ownership but no number -> at least 1
                 return 1
             return None
 
         if picked:
             txt = member_texts.get(picked, "")
-            # 1) explicit counts anywhere
             cnt = find_ownership_counts(txt)
             if cnt:
                 return f"{picked} has {cnt} car(s) (in messages)."
-            # 2) ownership present but no number
-            # 3) topical mentions (car service, rental, etc.)
             sents = find_sentences_with_keywords(txt, CAR_KEYWORDS)
             if sents:
-                # choose a sentence and examine if it's possession or service
                 for s in sents:
-                    # if sentence contains ownership verbs, treat as ownership (even if no number)
                     if re.search(r'\b(I|We|I\'ve|I have|I own|my)\b', s, flags=re.IGNORECASE):
                         return f"{picked} indicates ownership/possession: \"{s}\" (no explicit count found)."
-                # otherwise it's topical (services, recommendations)
                 return f"{picked} mentions cars (topic): \"{sents[0]}\""
             return f"No car information found for {picked}."
         else:
-            # No name picked: search all members for ownership info first then topical mentions
             ownership_hits = []
             topical_hits = []
             for name, txt in member_texts.items():
@@ -248,7 +203,6 @@ def answer_question_from_messages(question, messages):
                 else:
                     sents = find_sentences_with_keywords(txt, CAR_KEYWORDS)
                     if sents:
-                        # mark as topic
                         topical_hits.append(f"{name}: \"{sents[0]}\"")
             if ownership_hits:
                 return " | ".join(ownership_hits[:8])
@@ -256,8 +210,6 @@ def answer_question_from_messages(question, messages):
                 return " | ".join(topical_hits[:10])
             return "No car information found in the dataset."
 
-
-    # RESTAURANT intent
     if any(w in lowq for w in ["restaurant", "restaurants", "dinner", "lunch", "eat", "dine", "reservation"]):
         if picked:
             txt = member_texts.get(picked, "")
@@ -265,7 +217,6 @@ def answer_question_from_messages(question, messages):
             restaurants = []
             for s in sents:
                 restaurants.extend(extract_restaurant_names(s))
-            # dedupe
             restaurants = list(dict.fromkeys([r for r in restaurants if r]))
             if restaurants:
                 return f"{picked}'s mentioned restaurants: {', '.join(restaurants)}"
@@ -295,7 +246,6 @@ def answer_question_from_messages(question, messages):
                 return " | ".join(fragments)
             return "No restaurant info found in the dataset."
 
-    # Default fallback: search for best matching member by keyword overlap
     keywords = re.findall(r'\w+', lowq)
     best = None
     for name, txt in member_texts.items():
